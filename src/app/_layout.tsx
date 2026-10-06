@@ -1,18 +1,54 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
+import { useEffect, useRef } from 'react';
+import { startMessaging, stopMessaging } from '../messaging/realtime';
+import { AuthProvider, useAuth } from '../presentation/AuthProvider';
+import { clearTray } from '../stories/trayStore';
+import { startSync } from '../sync/syncEngine';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+// Al abrir la app desde un enlace sin sesión, Expo Router navega a /post/..., pero el Gate lo manda a /login.
+// Se recuerda el destino y, al iniciar sesión, se abre el enlace pedido.
+export const unstable_settings = { initialRouteName: '(tabs)' };
 
-SplashScreen.preventAutoHideAsync();
+function Gate() {
+  const { session, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+  const pathname = usePathname();
+  const pendingLink = useRef<string | null>(null);
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  // Con sesión iniciada arranca el motor de sincronización offline (cola en SQLite)
+  useEffect(() => { if (session) startSync(); }, [session]);
+
+  // Escucha global de mensajes (entregado, bandeja, contador de no leídos); se cierra al salir de sesión
+  const uid = session?.user.id;
+  useEffect(() => {
+    if (uid) startMessaging(uid);
+    else { stopMessaging(); clearTray(); }
+  }, [uid]);
+
+  useEffect(() => {
+    if (loading) return;
+    const first = segments[0] as string | undefined;
+    const inAuth = first === 'login' || first === 'register';
+    if (!session && !inAuth) {
+      if (/^\/post\/[^/]+$/.test(pathname)) pendingLink.current = pathname; // guarda el enlace profundo
+      router.replace('/login' as any);
+    }
+    if (session && inAuth) {
+      const target = pendingLink.current;
+      pendingLink.current = null;
+      router.replace('/' as any);
+      if (target) setTimeout(() => router.push(target as any), 0); // abre el post pedido, con Inicio debajo
+    }
+  }, [session, loading, segments]);
+
+  return <Stack screenOptions={{ headerShown: false, animation: 'fade' }} />;
+}
+
+export default function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <AuthProvider>
+      <Gate />
+    </AuthProvider>
   );
 }
