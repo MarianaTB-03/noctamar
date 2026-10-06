@@ -133,4 +133,4 @@ Casos a verificar: app cerrada, app abierta, sin sesión, enlace inválido (cae 
 Expo SDK 56 · React Native · Expo Router · TypeScript · Supabase (Auth, Postgres, Realtime, Storage) · expo-sqlite · NetInfo · expo-image-manipulator · expo-image-picker · expo-crypto · expo-linear-gradient
 
 ## Autoría
-Mar, Universidad de La Sabana. Desarrollo Móvil, 2026.
+Mariana Tirado Bubano, Universidad de La Sabana. Desarrollo Móvil, 2026.
